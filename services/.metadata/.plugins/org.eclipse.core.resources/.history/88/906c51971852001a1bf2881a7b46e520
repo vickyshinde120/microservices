@@ -1,0 +1,8 @@
+spring.application.name=currency-exchange-service
+server.port=8000
+
+
+spring.datasource.password=root
+spring.datasource.username=root
+spring.datasource.url=jdbc:mysql://localhost:3306/college
+spring.main.allow-bean-definition-overriding=true

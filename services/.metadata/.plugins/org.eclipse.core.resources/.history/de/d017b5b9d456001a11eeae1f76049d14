@@ -1,0 +1,31 @@
+package com.microservices.currencyexchange.currencyexchangeservice;
+
+import java.math.BigDecimal;
+
+import org.springframework.beans.factory.annotation.Autowired;
+//import org.springframework.cloud.config.environment.Environment;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class CurrencyExchangeController {
+	@Autowired
+	ExchangeValueRepository repo;
+    
+	@GetMapping("/currency-exchange/from/{from}/to/{to}")
+	public Exchange retriveExchangeValue(@PathVariable String from,@PathVariable String to) {
+		
+		return repo.findById("1").orElse(null);
+		//return ex;
+		
+	}
+//	@GetMapping("/currency-exchange/from/{from}/to/{to}")
+//	public Exchange retriveValue(@PathVariable String from,@PathVariable String to) {
+//		
+//		return repo.findBycurrency_FromAndcurrency_To();
+//		//return ex;
+//		
+//	}
+	
+}

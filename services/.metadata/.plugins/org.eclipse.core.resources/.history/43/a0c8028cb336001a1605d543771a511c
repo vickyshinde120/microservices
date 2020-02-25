@@ -1,0 +1,282 @@
+/**
+ * 
+ */
+package com.cisco.alfresco.service.contents;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.text.DateFormat;
+import java.util.Date;
+import java.util.Locale;
+
+import org.alfresco.repo.security.authentication.AuthenticationUtil;
+import org.alfresco.repo.security.authentication.AuthenticationUtil.RunAsWork;
+import org.alfresco.service.ServiceRegistry;
+import org.alfresco.service.cmr.action.Action;
+import org.alfresco.service.cmr.repository.NodeRef;
+import org.alfresco.service.cmr.security.AccessStatus;
+import org.apache.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.springframework.extensions.webscripts.AbstractWebScript;
+import org.springframework.extensions.webscripts.WebScriptRequest;
+import org.springframework.extensions.webscripts.WebScriptResponse;
+
+import com.cisco.alfresco.edcsng.elastic.search.manager.ElasticSearchPermissionActionExecuter;
+import com.cisco.alfresco.service.commons.ServiceConstants;
+import com.cisco.alfresco.service.constants.ErrorStatus;
+import com.cisco.alfresco.service.util.ServiceUtil;
+
+/**
+ * @author kaudutta
+ *
+ */
+public class SetPermission extends AbstractWebScript {
+	private static Logger log = Logger.getLogger(SetPermission.class);
+	private DateFormat formatter = DateFormat.getDateTimeInstance( DateFormat.FULL, 
+            DateFormat.FULL, 
+            Locale.US);
+	protected ServiceRegistry registry;
+
+	public void setServiceRegistry(ServiceRegistry registry) {
+		this.registry = registry;
+	}
+	@Override
+	public void execute(final WebScriptRequest req, final WebScriptResponse res) throws IOException {
+		String userName = req.getParameter("uid");
+		userName = null == userName || !registry.getAuthorityService().authorityExists(userName)
+				? registry.getAuthenticationService().getCurrentUserName()
+				: userName;
+
+		AuthenticationUtil.runAs(new RunAsWork<String>() {
+			@Override
+			public String doWork() throws Exception {
+				JSONArray authorityJsonArray = null;
+				JSONObject mainObject = null;
+				JSONObject responseObject = new JSONObject();
+				String inheritPermission=null;
+				try {
+					mainObject = new JSONObject(req.getParameter("permissions").trim());
+					if(mainObject.has("authorities")) {
+						authorityJsonArray = mainObject.getJSONArray("authorities");
+					}
+					if(mainObject.has("inheritPermission")) {
+						inheritPermission = Boolean.toString(mainObject.getBoolean("inheritPermission"));
+					}
+				} catch (JSONException e2) {
+					try {
+						res.setStatus(ErrorStatus.STATUS_CODE_INVALID_SET_PERMISSION);
+						log.error(formatter.format(new Date()) + "  :: Set Permission error: invalid metadata. ");
+						responseObject.put("message", "");
+						responseObject.put("isSuccess", false);
+						responseObject.put("error", ErrorStatus.STATUS_MSG_INVALID_SET_PERMISSION);
+						res.getWriter().write(responseObject.toString());
+						res.setContentType("application/json");
+						res.getWriter().close();
+						return null;
+					} catch (JSONException e1) {
+						e1.printStackTrace();
+						return null;
+					}
+				}
+				
+				try {
+					//Modified by rajatag for US8935 -start
+					NodeRef nodeRef = null;
+					if(mainObject.has("id"))
+					{
+						if(String.valueOf(mainObject.get("id")).trim().equals(""))
+						{
+							res.setStatus(ErrorStatus.STATUS_CODE_INVALID_NODEREF);
+							log.error(formatter.format(new Date()) + "  :: Set Permission error: invalid nodeRef. ");
+							responseObject.put("isSuccess", false);
+							responseObject.put("error", ErrorStatus.STATUS_MSG_INVALID_NODEREF);
+							res.getWriter().write(responseObject.toString());
+							res.setContentType("application/json");
+							res.getWriter().close();
+							return null;
+						}
+						nodeRef=ServiceUtil.getNodeRefThroughIndex(String.valueOf(mainObject.get("id")).trim(), registry);
+					}
+					if(nodeRef == null && (mainObject.has("nodeRef")))
+					{
+						if(String.valueOf(mainObject.get("nodeRef")).trim().equals(""))
+						{
+							res.setStatus(ErrorStatus.STATUS_CODE_INVALID_NODEREF);
+							log.error(formatter.format(new Date()) + "  :: Set Permission error: invalid NodeRef. ");
+							responseObject.put("isSuccess", false);
+							responseObject.put("error", ErrorStatus.STATUS_MSG_INVALID_NODEREF);
+							res.getWriter().write(responseObject.toString());
+							res.setContentType("application/json");
+							res.getWriter().close();
+							return null;
+						}
+						try{
+						nodeRef = new NodeRef(String.valueOf(mainObject.get("nodeRef")).trim());
+						}catch(Exception e){
+							res.setStatus(ErrorStatus.STATUS_CODE_INVALID_NODEREF);
+							log.error(formatter.format(new Date()) + "  :: Set Permission error: invalid NodeRef. ");
+							responseObject.put("isSuccess", false);
+							responseObject.put("error", ErrorStatus.STATUS_MSG_INVALID_NODEREF);
+							res.getWriter().write(responseObject.toString());
+							res.setContentType("application/json");
+							res.getWriter().close();
+							return null;
+						}
+					}
+					
+					if(!registry.getNodeService().exists(nodeRef))
+					{
+						res.setStatus(ErrorStatus.STATUS_CODE_INVALID_NODEREF);
+						log.error(formatter.format(new Date()) + "  :: Set Permission error:  NodeRef does not exist.");
+						responseObject.put("isSuccess", false);
+						responseObject.put("error", ErrorStatus.STATUS_MSG_INVALID_NODEREF);
+						res.getWriter().write(responseObject.toString());
+						res.setContentType("application/json");
+						res.getWriter().close();
+						return null;
+					}
+					
+					if(registry.getPermissionService().hasPermission(nodeRef, "ChangePermissions") != AccessStatus.ALLOWED) {
+						res.setStatus(ErrorStatus.STATUS_CODE_INVALID_PERMISSION);
+						log.error(formatter.format(new Date()) + "  :: Set Permission error:  NodeRef does not exist.");
+						responseObject.put("isSuccess", false);
+						responseObject.put("error", ErrorStatus.STATUS_MSG_INVALID_PERMISSION);
+						res.getWriter().write(responseObject.toString());
+						res.setContentType("application/json");
+						res.getWriter().close();
+						return null;
+					}
+					
+					if(null == inheritPermission && null == authorityJsonArray) {
+						res.setStatus(ErrorStatus.STATUS_CODE_INVALID_SET_PERMISSION);
+						log.error(formatter.format(new Date()) + "  :: Set Permission error: You have to send either authorities of inheritancePermission details.. ");
+						responseObject.put("message", "");
+						responseObject.put("isSuccess", false);
+						responseObject.put("error", "You have to send either authorities of inheritancePermission details.");
+						res.getWriter().write(responseObject.toString());
+						res.setContentType("application/json");
+						res.getWriter().close();
+						return null;
+					}
+					
+					if(null != inheritPermission && (null == authorityJsonArray || authorityJsonArray.length()==0)) {
+						boolean doInherit = Boolean.parseBoolean(inheritPermission.trim());
+						registry.getPermissionService().setInheritParentPermissions(nodeRef, doInherit);
+						
+						Action elasticSearchAction = registry.getActionService().createAction(ElasticSearchPermissionActionExecuter.NAME);
+						elasticSearchAction.setParameterValue(ElasticSearchPermissionActionExecuter.PARAM_NODE, (Serializable) nodeRef.toString());
+						registry.getActionService().executeAction(elasticSearchAction, null, false, true);
+						
+						responseObject.put("isSuccess", true);
+						responseObject.put("error", "");
+						responseObject.put("message", "Inherit permission has been set to "+ inheritPermission);
+						res.getWriter().write(responseObject.toString());
+						res.setContentType("application/json");
+						res.getWriter().close();
+						return null;
+					}
+					
+					boolean hasAuth = false;
+					if(authorityJsonArray !=null) {
+						if (authorityJsonArray.length()>0){
+							if (!registry.getPermissionService().hasPermission(nodeRef, "Write").equals(AccessStatus.ALLOWED)){
+								res.setStatus(ErrorStatus.STATUS_CODE_INVALID_PERMISSION);
+								log.error(formatter.format(new Date()) + "  :: Set Permission error "+ authorityJsonArray.toString() );
+								responseObject.put("isSuccess", false);
+								responseObject.put("error", ErrorStatus.STATUS_MSG_INVALID_PERMISSION);
+								res.getWriter().write(responseObject.toString());
+								res.setContentType("application/json");
+								res.getWriter().close();
+								return null;
+							}
+							
+							//Added by veerai for US10103 - start
+							JSONArray invalidPermissionJson = ServiceUtil.getInvalidPermission(authorityJsonArray, registry);
+							if(invalidPermissionJson.length()>0){
+								res.setStatus(ErrorStatus.STATUS_CODE_INVALID_SET_PERMISSION);
+								log.error(formatter.format(new Date()) + "  :: Set Permission error: invalid Permission Set. "+invalidPermissionJson.toString());
+								responseObject.put("message", "");
+								responseObject.put("isSuccess", false);
+								responseObject.put("error", ErrorStatus.STATUS_MSG_INVALID_SET_PERMISSION);
+								responseObject.put("invalidData", invalidPermissionJson);
+								res.getWriter().write(responseObject.toString());
+								res.setContentType("application/json");
+								res.getWriter().close();
+								return null;
+							}//Added by veerai for US10103 - end
+
+							for(int i = 0 ; i< authorityJsonArray.length(); i++){
+								JSONObject permissionJsonObject = (JSONObject) authorityJsonArray.get(i);
+								String authority = permissionJsonObject.getString("authority");
+								String permission = ServiceConstants.PERMISSION_MAP.get(permissionJsonObject.getString("permission").toLowerCase());
+								if(permissionJsonObject.has("delete") && permissionJsonObject.getBoolean("delete")) {
+									registry.getPermissionService().deletePermission(nodeRef, authority , permission);
+									continue;
+								}
+								registry.getPermissionService().setPermission(nodeRef, authority , permission, true);
+							}
+							hasAuth = true;
+					}
+						
+						if(null != inheritPermission) {
+							boolean doInherit = Boolean.parseBoolean(inheritPermission.trim());
+							registry.getPermissionService().setInheritParentPermissions(nodeRef, doInherit);
+						}
+						
+						Action elasticSearchAction = registry.getActionService().createAction(ElasticSearchPermissionActionExecuter.NAME);
+						elasticSearchAction.setParameterValue(ElasticSearchPermissionActionExecuter.PARAM_NODE, (Serializable) nodeRef.toString());
+						registry.getActionService().executeAction(elasticSearchAction, null, false, true);
+
+						if(hasAuth) {
+							responseObject.put("message", "Permissions has been set successfully.");
+							log.info(formatter.format(new Date()) + "  :: Set Permission : Permissions has been set successfully."+this.getClass().getCanonicalName());
+							//Modified by rajatag for US8935 -end
+							responseObject.put("isSuccess", true);
+							res.getWriter().write(responseObject.toString());
+							res.setContentType("application/json");
+							res.getWriter().close();
+							return null;
+						}
+						responseObject.put("message", "Inherit permission has been set to "+ inheritPermission);
+						log.info(formatter.format(new Date()) + "  :: Set Permission : Inherit permission has been set to "+ this.getClass().getCanonicalName()+inheritPermission.trim());
+						//Modified by rajatag for US8935 -end
+						responseObject.put("isSuccess", true);
+						res.getWriter().write(responseObject.toString());
+						res.setContentType("application/json");
+						res.getWriter().close();
+						return null;
+					}
+					res.setStatus(ErrorStatus.STATUS_CODE_INVALID_SET_PERMISSION);
+					log.error(formatter.format(new Date()) + "  :: Set Permission error: invalid Permission Set. ");
+					responseObject.put("message", "");
+					responseObject.put("isSuccess", false);
+					responseObject.put("error", ErrorStatus.STATUS_MSG_INVALID_SET_PERMISSION);
+					res.getWriter().write(responseObject.toString());
+					res.setContentType("application/json");
+					res.getWriter().close();
+					return null;
+
+				} catch (Exception e) {
+					try {
+						res.setStatus(ErrorStatus.STATUS_CODE_INVALID_SET_PERMISSION);
+						log.error(formatter.format(new Date()) + "  :: Set Permission error: invalid Permission Set. "+ this.getClass().getCanonicalName()
+								+ ":: \n" + e.fillInStackTrace());
+						responseObject.put("message", "");
+						responseObject.put("isSuccess", false);
+						responseObject.put("error", ErrorStatus.STATUS_MSG_INVALID_SET_PERMISSION);
+						res.getWriter().write(responseObject.toString());
+						res.setContentType("application/json");
+						res.getWriter().close();
+						return null;
+					} catch (JSONException e1) {
+						e1.printStackTrace();
+						return null;
+					} 
+				}
+			}
+		}, userName);
+	}
+
+}

@@ -1,0 +1,6 @@
+insert into exchange(id,from, to,conversion_multiple,port) 
+values(1,'usd','inr',65,8000);
+insert into exchange(id,from, to,conversion_multiple,port) 
+values(2,'eud','inr',75,8000);
+insert into exchange(id,from, to,conversion_multiple,port) 
+values(3,'asd','inr',55,8000);

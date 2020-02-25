@@ -1,0 +1,68 @@
+package com.microservices.currencyexchange.currencyexchangeservice;
+
+import java.math.BigDecimal;
+
+import javax.persistence.Entity;
+import javax.persistence.Id;
+
+@Entity
+public class Exchange {
+	public Exchange() {
+		// TODO Auto-generated constructor stub
+	}
+
+	public Exchange(String from, String to, String id, BigDecimal conversionMultiple) {
+		super();
+		this.currency_from = from;
+		this.currency_to = to;
+		this.id = id;
+		this.conversionMultiple = conversionMultiple;
+	}
+
+	public String getFrom() {
+		return from;
+	}
+
+	public void setFrom(String from) {
+		this.from = from;
+	}
+
+	public String getTo() {
+		return to;
+	}
+
+	public void setTo(String to) {
+		this.to = to;
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public BigDecimal getConversionMultiple() {
+		return conversionMultiple;
+	}
+
+	public void setConversionMultiple(BigDecimal conversionMultiple) {
+		this.conversionMultiple = conversionMultiple;
+	}
+	private int port;
+
+	public int getPort() {
+		return port;
+	}
+
+	public void setPort(int port) {
+		this.port = port;
+	}
+	@Id
+	private String id;
+	private String currenct_from;
+	private String currency_to;
+
+	private BigDecimal conversionMultiple;
+}

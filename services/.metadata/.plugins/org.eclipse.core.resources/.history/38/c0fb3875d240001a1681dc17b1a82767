@@ -1,0 +1,55 @@
+package com.example.demo;
+
+import java.io.IOException;
+import java.util.List;
+
+import javax.websocket.server.PathParam;
+
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.ModelAndView;
+
+import Product.Product;
+import dao.ProductDao;
+
+@RestController
+public class HomeController {
+	@RequestMapping(value="/")
+public ModelAndView home() {
+	ModelAndView mv = new ModelAndView();
+	//mv.setViewName("student.jsp");
+	mv.setViewName("home.jsp");
+	return mv;
+	
+	
+}
+	@RequestMapping("/productList")
+    public ModelAndView getProducts(Model model) {
+		System.out.println(11);
+        List<Product> products = ProductDao.getProductList();
+        model.addAttribute("products", products);
+        ModelAndView mv = new ModelAndView();
+        mv.setViewName("productList.jsp");
+        mv.addObject("products", products);
+
+        return mv;
+    }
+	 @RequestMapping("/productList/viewProduct/{productId}")
+	    public ModelAndView Product(@PathVariable("productId") String productId)  {
+		 System.out.println(productId);
+		 ModelAndView mvv = new ModelAndView("NewFile.jsp");
+           ProductDao productDao=new ProductDao();
+		Product product =  productDao.getProductById(productId);
+		mvv.addObject("product", product);
+		System.out.println(product.getProductCategory());
+	
+          //  mvv.setViewName("NewFile.jsp");
+           
+           
+        	return mvv;
+       
+	    }
+}

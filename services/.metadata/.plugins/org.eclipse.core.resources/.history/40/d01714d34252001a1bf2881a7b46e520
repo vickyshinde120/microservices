@@ -1,0 +1,8 @@
+package com.microservices.currencyexchange.currencyexchangeservice;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ExchangeValueRepository extends JpaRepository<Exchange, String> {
+	Exchange findBycurrency_FromAndcurrency_To();
+	
+}
